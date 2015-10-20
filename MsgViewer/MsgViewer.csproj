@@ -39,6 +39,17 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
+  <PropertyGroup>
+    <ApplicationIcon>Wwalczyszyn-Android-Style-Mail.ico</ApplicationIcon>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|AnyCPU'">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <OutputPath>bin\Debug\</OutputPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|AnyCPU'">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <OutputPath>bin\Release\</OutputPath>
+  </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Drawing" />
@@ -48,6 +59,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Helpers\HtmlToText.cs" />
+    <Compile Include="Helpers\NativeMethods.cs" />
     <Compile Include="Helpers\Scaling.cs" />
     <Compile Include="Settings.cs" />
     <Compile Include="ViewerForm.cs">
@@ -94,6 +106,9 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Resources\forward-icon.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="Wwalczyszyn-Android-Style-Mail.ico" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

@@ -383,6 +383,11 @@ namespace MsgReader.Outlook
             /// Contains the <see cref="Storage.Contact"/> object
             /// </summary>
             private Contact _contact;
+
+            /// <summary>
+            /// Contains the <see cref="Storage.ReceivedBy"/> object
+            /// </summary>
+            private ReceivedBy _receivedBy;
             #endregion
 
             #region Properties
@@ -395,7 +400,7 @@ namespace MsgReader.Outlook
                 get { return GetMapiPropertyString(MapiTags.PR_INTERNET_MESSAGE_ID); }
             }
 
-            #region type
+            #region Type
             /// <summary>
             /// Gives the <see cref="MessageType">type</see> of this message object
             /// </summary>
@@ -1034,7 +1039,7 @@ namespace MsgReader.Outlook
                             var rtfDomDocument = new Rtf.DomDocument();
                             rtfDomDocument.LoadRtfText(bodyRtf);
                             if (!string.IsNullOrEmpty(rtfDomDocument.HtmlContent))
-                                html = rtfDomDocument.HtmlContent;
+                                html = rtfDomDocument.HtmlContent.Trim('\r', '\n');
                         }
                     }
 
@@ -1104,6 +1109,26 @@ namespace MsgReader.Outlook
             /// has another <see cref="MessageType"/>
             /// </summary>
             public DateTime? SignedOn { get; private set; }
+
+            /// <summary>
+            /// Returns information about who has received this message. This information is only
+            /// set when a message has been received and when the message provider stamped this 
+            /// information into this message. Null when not available.
+            /// </summary>
+            public ReceivedBy ReceivedBy
+            {
+                get
+                {
+                    if (_receivedBy != null)
+                        return _receivedBy;
+
+                    _receivedBy = new ReceivedBy(
+                        GetMapiPropertyString(MapiTags.PR_RECEIVED_BY_ADDRTYPE), 
+                        GetMapiPropertyString(MapiTags.PR_RECEIVED_BY_EMAIL_ADDRESS),
+                        GetMapiPropertyString(MapiTags.PR_RECEIVED_BY_NAME));
+                    return _receivedBy;
+                }
+            }
             #endregion
 
             #region Constructors
@@ -1111,13 +1136,15 @@ namespace MsgReader.Outlook
             ///   Initializes a new instance of the <see cref="Storage.Message" /> class from a msg file.
             /// </summary>
             /// <param name="msgfile">The msg file to load</param>
-            public Message(string msgfile) : base(msgfile) { }
+            /// <param name="fileAccess">FileAcces mode, default is Read</param>
+            public Message(string msgfile, FileAccess fileAccess = FileAccess.Read) : base(msgfile, fileAccess) { }
 
             /// <summary>
             /// Initializes a new instance of the <see cref="Storage.Message" /> class from a <see cref="Stream" /> containing an IStorage.
             /// </summary>
             /// <param name="storageStream"> The <see cref="Stream" /> containing an IStorage. </param>
-            public Message(Stream storageStream) : base(storageStream) { }
+            /// <param name="fileAccess">FileAcces mode, default is Read</param>
+            public Message(Stream storageStream, FileAccess fileAccess = FileAccess.Read) : base(storageStream, fileAccess) { }
 
             /// <summary>
             /// Initializes a new instance of the <see cref="Storage.Message" /> class on the specified <see cref="Storage.NativeMethods.IStorage"/>.
@@ -1125,7 +1152,7 @@ namespace MsgReader.Outlook
             /// <param name="storage"> The storage to create the <see cref="Storage.Message" /> on. </param>
             /// <param name="renderingPosition"></param>
             /// <param name="storageName">The name of the <see cref="Storage.NativeMethods.IStorage"/> stream that containts this message</param>
-            public Message(NativeMethods.IStorage storage, int renderingPosition, string storageName) : base(storage)
+            internal Message(NativeMethods.IStorage storage, int renderingPosition, string storageName) : base(storage)
             {
                 StorageName = storageName;
                 _propHeaderSize = MapiTags.PropertiesStreamHeaderTop;
@@ -1154,9 +1181,6 @@ namespace MsgReader.Outlook
             protected override void LoadStorage(NativeMethods.IStorage storage)
             {
                 base.LoadStorage(storage);
-
-                GetHeaders();
-                SetEmailSenderAndRepresentingSender();
 
                 foreach (var storageStatistic in _subStorageStatistics.Values)
                 {
@@ -1250,6 +1274,9 @@ namespace MsgReader.Outlook
                     // Clean up the com object
                     Marshal.ReleaseComObject(subStorage);
                 }
+
+                GetHeaders();
+                SetEmailSenderAndRepresentingSender();
             }
             #endregion
             
@@ -1351,6 +1378,9 @@ namespace MsgReader.Outlook
             /// the <see cref="Storage.Message"/></exception>
             public void DeleteAttachment(Object attachment)
             {
+                if (FileAccess != FileAccess.ReadWrite)
+                    throw new MRCannotRemoveAttachment("Cannot remove attachments when the file is not opened in Write or ReadWrite mode");
+
                 foreach (var attachmentObject in _attachments)
                 {
                     if (attachmentObject.Equals(attachment))
@@ -1502,6 +1532,9 @@ namespace MsgReader.Outlook
                 if (string.IsNullOrEmpty(tempEmail) || tempEmail.IndexOf('@') == -1)
                     tempEmail = GetMapiPropertyString(MapiTags.PR_SENT_REPRESENTING_SMTP_ADDRESS);
 
+                if (string.IsNullOrEmpty(tempEmail))
+                    tempEmail = GetMapiPropertyString(MapiTags.InternetAccountName);
+
                 MessageHeader headers = null;
 
                 if (string.IsNullOrEmpty(tempEmail) || tempEmail.IndexOf("@", StringComparison.Ordinal) < 0)
@@ -1531,13 +1564,13 @@ namespace MsgReader.Outlook
                 // Sometimes the E-mail address and displayname get swapped so check if they are valid
                 if (!EmailAddress.IsEmailAddressValid(tempEmail) && EmailAddress.IsEmailAddressValid(tempDisplayName))
                 {
-                    // Swap them
+                    // Swap then
                     email = tempDisplayName;
                     displayName = tempEmail;
                 }
                 else if (EmailAddress.IsEmailAddressValid(tempDisplayName))
                 {
-                    // If the displayname is an emailAddress them move it
+                    // If the displayname is an emailAddress then move it
                     email = tempDisplayName;
                     displayName = tempDisplayName;
                 }
@@ -1558,13 +1591,13 @@ namespace MsgReader.Outlook
                 // Sometimes the E-mail address and displayname get swapped so check if they are valid
                 if (!EmailAddress.IsEmailAddressValid(tempEmail) && EmailAddress.IsEmailAddressValid(tempDisplayName))
                 {
-                    // Swap them
+                    // Swap then
                     email = tempDisplayName;
                     displayName = tempEmail;
                 }
                 else if (EmailAddress.IsEmailAddressValid(tempDisplayName))
                 {
-                    // If the displayname is an emailAddress them move it
+                    // If the displayname is an emailAddress then move it
                     email = tempDisplayName;
                     displayName = tempDisplayName;
                 }
