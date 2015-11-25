@@ -130,6 +130,16 @@ namespace MsgReader.Outlook
                 EmailClearSignedDelivery,
 
                 /// <summary>
+                /// The message is an E-mail that is generared signed (IPM.Note.BMA.Stub)
+                /// </summary>
+                EmailBmaStub,
+
+                /// <summary>
+                /// The message is a short message service (IPM.Note.Mobile.SMS)
+                /// </summary>
+                EmailSms,
+
+                /// <summary>
                 /// The message is an appointment (IPM.Appointment)
                 /// </summary>
                 Appointment,
@@ -183,8 +193,7 @@ namespace MsgReader.Outlook
                 /// The message is a response to tentatively accept the meeting request (IPM.Schedule.Meeting.Resp.Tent)
                 /// </summary>
                 AppointmentResponseTentative,
-
-
+                
                 /// <summary>
                 /// Non-delivery report for a Tentative meeting response (REPORT.IPM.SCHEDULE.MEETING.RESP.TENT.NDR)
                 /// </summary>
@@ -422,6 +431,10 @@ namespace MsgReader.Outlook
                             _type = MessageType.Email;
                             break;
 
+                        case "IPM.NOTE.MOBILE.SMS":
+                            _type = MessageType.EmailSms;
+                            break;
+
                         case "REPORT.IPM.NOTE.NDR":
                             _type = MessageType.EmailNonDeliveryReport;
                             break;
@@ -468,6 +481,10 @@ namespace MsgReader.Outlook
 
                         case "REPORT.IPM.NOTE.SMIME.MULTIPARTSIGNED.DR":
                             _type = MessageType.EmailClearSignedDelivery;
+                            break;
+
+                        case "IPM.NOTE.BMA.STUB":
+                            _type = MessageType.EmailBmaStub;
                             break;
 
                         case "IPM.APPOINTMENT":
@@ -680,7 +697,7 @@ namespace MsgReader.Outlook
             }
 
             /// <summary>
-            /// Returns an URL to the ubsubscribe page of an mailing list when this message is part of a mailing
+            /// Returns an URL to the unsubscribe page of an mailing list when this message is part of a mailing
             /// </summary>
             public string MailingListUnsubscribe
             {
@@ -711,8 +728,8 @@ namespace MsgReader.Outlook
                     if (_sentOn != null)
                         return _sentOn;
 
-                    _sentOn = GetMapiPropertyDateTime(MapiTags.PR_PROVIDER_SUBMIT_TIME) ??
-                                 GetMapiPropertyDateTime(MapiTags.PR_CLIENT_SUBMIT_TIME);
+                    _sentOn = GetMapiPropertyDateTime(MapiTags.PR_CLIENT_SUBMIT_TIME) ??
+                                 GetMapiPropertyDateTime(MapiTags.PR_PROVIDER_SUBMIT_TIME);
 
                     if (_sentOn == null && Headers != null)
                         _sentOn = Headers.DateSent.ToLocalTime();
@@ -1669,7 +1686,8 @@ namespace MsgReader.Outlook
                 if (convertToHref && html && !string.IsNullOrEmpty(emailAddress))
                 {
                     if (!string.IsNullOrWhiteSpace(representingEmailAddress) &&
-                        !emailAddress.Equals(representingEmailAddress, StringComparison.InvariantCultureIgnoreCase))
+                        (!emailAddress.Equals(representingEmailAddress, StringComparison.InvariantCultureIgnoreCase) &&
+                         !displayName.Equals(representingEmailAddress, StringComparison.InvariantCultureIgnoreCase)))
                         output += "<a href=\"mailto:" + representingEmailAddress + "\">" +
                                   (!string.IsNullOrEmpty(representingDisplayName)
                                       ? representingDisplayName
